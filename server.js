@@ -119,15 +119,34 @@ app.post('/schedule-email', ensureAuthenticated, hasRole('admin'), (req, res) =>
     .catch(err => res.status(400).send(err));
 });
 
-function hasRole(role) {
-    return function(req, res, next) {
-      if (req.user && req.user.role === role) {
-        next();
-      } else {
-        res.status(403).send('Unauthorized');
-      }
-    };
+// function hasRole(role) {
+//     return function(req, res, next) {
+//       if (req.user && req.user.role === role) {
+//         next();
+//       } else {
+//         res.status(403).send('Unauthorized');
+//       }
+//     };
+//   }
+
+  // AB Testing route
+  app.post('/ab-tests', (req, res) => {
+    const { campaignId, variations } = req.body;
+    createABTest(campaignId, variations).then(test => {
+      res.status(201).send(test);
+    }).catch(err => {
+      res.status(400).send(err.message);
+    });
+  });
+  
+  function createABTest(campaignId, variations) {
+    // Logic to split the email list and assign variations
+    return new Promise((resolve, reject) => {
+      // Simplified example logic
+      resolve({ id: 'ab123', campaignId, variations });
+    });
   }
+
 
 
 // Email sending job processor
