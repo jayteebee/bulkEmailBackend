@@ -130,22 +130,39 @@ app.post('/schedule-email', ensureAuthenticated, hasRole('admin'), (req, res) =>
 //   }
 
   // AB Testing route
-  app.post('/ab-tests', (req, res) => {
+  
+  // Database model for A/B tests
+  const ABTestSchema = new mongoose.Schema({
+    campaignId: String,
+    variations: [{ content: String, subject: String }],
+    results: [{ variationId: String, opens: Number, clicks: Number }]
+  });
+  const ABTest = mongoose.model('ABTest', ABTestSchema);
+  
+  // API to create an A/B test
+  app.post('/ab-tests', async (req, res) => {
     const { campaignId, variations } = req.body;
-    createABTest(campaignId, variations).then(test => {
-      res.status(201).send(test);
-    }).catch(err => {
-      res.status(400).send(err.message);
-    });
+    const abTest = new ABTest({ campaignId, variations, results: variations.map(v => ({ variationId: v._id, opens: 0, clicks: 0 })) });
+    try {
+      await abTest.save();
+      res.status(201).send(abTest);
+    } catch (error) {
+      res.status(400).send(error);
+    }
   });
   
-  function createABTest(campaignId, variations) {
-    // Logic to split the email list and assign variations
-    return new Promise((resolve, reject) => {
-      // Simplified example logic
-      resolve({ id: 'ab123', campaignId, variations });
-    });
-  }
+  // API to record email interaction (opens/clicks)
+  app.post('/record-interaction', async (req, res) => {
+    const { testId, variationId, type } = req.body;
+    const update = type === 'open' ? { $inc: { 'results.$.opens': 1 } } : { $inc: { 'results.$.clicks': 1 } };
+    try {
+      await ABTest.updateOne({ _id: testId, 'results.variationId': variationId }, update);
+      res.status(200).send('Interaction recorded');
+    } catch (error) {
+      res.status(400).send(error);
+    }
+  });
+  
 
 
 
