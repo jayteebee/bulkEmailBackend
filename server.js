@@ -6,6 +6,8 @@ const nodemailer = require('nodemailer');
 const Bull = require('bull');
 const emailQueue = new Bull('emailQueue', process.env.REDIS_URL);
 const nodeSchedule = require('node-schedule');
+const { ensureAuthenticated, hasRole } = require('./auth/auth');
+
 
 const dotenv = require('dotenv');
 dotenv.config();
@@ -56,6 +58,26 @@ app.post('/send-email', (req, res, next) => {
   res.send('Email sending job added to the queue.');
 });
 
+
+// Example of dynamic content adjustment logic
+// app.post('/send-email', ensureAuthenticated, (req, res) => {
+//     const { userId, templateId } = req.body;
+//     User.findById(userId, (err, user) => {
+//       if (err) return res.status(500).send(err);
+//       EmailTemplate.findById(templateId, (err, template) => {
+//         if (err) return res.status(500).send(err);
+//         const personalizedContent = adjustContentBasedOnBehavior(user, template.content);
+//         // Send email with personalized content
+//       });
+//     });
+//   });
+  
+//   function adjustContentBasedOnBehavior(user, content) {
+//     // Placeholder for content adjustment logic based on user behavior
+//     return content.replace('{firstName}', user.firstName); // Simplified example
+//   }
+  
+
 // Routes for managing contacts
 app.post('/contacts', (req, res) => {
     const newContact = new User(req.body);
@@ -83,7 +105,7 @@ const EmailSchedule = mongoose.model('EmailSchedule', new mongoose.Schema({
 }));
 
 // Endpoint to schedule an email
-app.post('/schedule-email', (req, res) => {
+app.post('/schedule-email', ensureAuthenticated, hasRole('admin'), (req, res) => {
   const { emailTemplateId, sendDateTime, recurrence, userId } = req.body;
   const newSchedule = new EmailSchedule({ emailTemplateId, sendDateTime, recurrence, userId });
   newSchedule.save()
@@ -97,7 +119,15 @@ app.post('/schedule-email', (req, res) => {
     .catch(err => res.status(400).send(err));
 });
 
-
+function hasRole(role) {
+    return function(req, res, next) {
+      if (req.user && req.user.role === role) {
+        next();
+      } else {
+        res.status(403).send('Unauthorized');
+      }
+    };
+  }
 
 
 // Email sending job processor
